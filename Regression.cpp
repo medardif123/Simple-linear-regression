@@ -4,6 +4,8 @@
 float a;
 float b;
 int n;
+float* w;
+float** xy;
 //read the data from the file 
 float** readCsv() {
 	FILE* file;
@@ -33,31 +35,67 @@ float** readCsv() {
 	xy[2][0] = xcol;
 	return xy;
 }
-//get the slope and the intercept of the line
-void linearLine(float** xy) {
-	float xmoy=0;
-	float ymoy=0;
+float* gradient() {
+	float* grad = (float*)malloc(2 * sizeof(float));
+	grad[0] = 0;
+	grad[1] = 0;
 	for (int i = 0; i < n; i++) {
-		xmoy += xy[0][i];
+		grad[0] += (-xy[1][i] + w[0] + w[1] * xy[0][i]);
+		grad[1] += (-xy[1][i] + w[0] + w[1] * xy[0][i])*xy[0][i];
 	}
-	xmoy /= n;
+	grad[0] = (grad[0]*2)/n;
+	grad[1] =(grad[1]*2)/n;
+	printf("grad[0]=%f\n",grad[0]);
+	printf("grad[1]=%f\n",grad[1]);
+	return grad;
+}
+float scalarProduct(float* x,float* y,int size) {
+	float prod=0;
+	for (int i = 0; i < size; i++) {
+		prod += x[i] * y[i];
+	}
+	return prod;
+}
+float* product(float* x, float alpha,int size) {
+	
+	for (int i = 0; i < size; i++) {
+		x[i] = x[i] * alpha;
+	}
+	return x;
+}
+float* sum(float* x, float* y, int size) {
+	
+	for (int i = 0; i < size; i++) {
+		x[i] = x[i] + y[i];
+	}
+	return x;
+}
+
+float empiricalError(float* w) {
+	float MSE=0;
 	for (int i = 0; i < n; i++) {
-		ymoy += xy[1][i];
+		MSE += (-xy[1][i] + w[0] + w[1] * xy[0][i]) * (-xy[1][i] + w[0] + w[1] * xy[0][i]);
 	}
-	ymoy /= n;
-	float cov=0;
-	for (int i = 0; i < n; i++) {
-		cov += (xy[0][i] - xmoy) * (xy[1][i] - ymoy);
+	MSE =MSE/n;
+	return MSE;
+}
+
+void gradientDescent() {
+	w = (float*)malloc(2 * sizeof(float));
+	w[0] = 0, w[1] = 1;
+	float epsilon = 0.001;
+	float stepSize = 0.003;
+	float* grad = gradient();
+	//stepSize=armijoStep(grad, stepSize);
+	while (scalarProduct(grad, grad, 2) > epsilon) {
+		for (int i = 0; i < 2; i++) {
+			w[i] = w[i] - stepSize * grad[i];
+		}
+		grad = gradient();
+		//stepSize = armijoStep(grad, stepSize);
 	}
-	float var=0;
-	for (int i = 0; i < n; i++) {
-		var += (xy[0][i] - xmoy) * (xy[0][i] - xmoy);
-	}
-	a = cov / var;
-	b = ymoy - a * xmoy;
 }
 int main() {
-	float** xy;
 	xy = readCsv();
 	n = xy[2][0];
 	float xmax = 0;
@@ -68,9 +106,12 @@ int main() {
 		if (ymax < xy[1][i])
 			ymax = xy[1][i];
 	}
-	printf("%f\n", ymax);
-	linearLine(xy);
-	printf("a=%f\tb=%f", a, b);
+	for (int i = 0; i < n; i++) {
+		printf("x=%f\n", xy[0][i]);
+		printf("y=%f\n", xy[1][i]);
+	}
+	gradientDescent();
+	printf("error=%f\n", empiricalError(w));
 	GLFWwindow* window;
 
 	/* Initialize the library */
@@ -104,8 +145,8 @@ int main() {
 		glLineWidth(4);
 		glColor3f(0.7, 0.0, 0.1);
 		glBegin(GL_LINES);
-		glVertex3f(-1.0,((b)/ymax)*2-1, 0.0);
-		glVertex3f(1.0, ((a*xmax+b) /ymax)*2-1, 0.0);
+		glVertex3f(-1.0,((w[0])/ymax)*2-1, 0.0);
+		glVertex3f(1.0, ((w[1]*xmax+b) /ymax)*2-1, 0.0);
 		glEnd();
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
